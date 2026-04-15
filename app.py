@@ -6,7 +6,7 @@ from datetime import date, timedelta
 st.set_page_config(page_title="Análise de Jogos", layout="wide")
 
 st.title("📊 Análise de Jogos")
-st.caption("Análise automática das competições principais, com filtro por país")
+st.caption("Análise automática das competições principais, com abas por país")
 
 API_TOKEN = st.secrets.get("FOOTBALL_DATA_API_TOKEN", None)
 
@@ -436,53 +436,50 @@ if st.button("Analisar agora"):
 
         df = df.sort_values(["País", "Competição", "Horário", "Jogo"]).reset_index(drop=True)
 
-        lista_paises = sorted(df["País"].dropna().unique().tolist())
-        paises_selecionados = st.multiselect(
-            "Filtrar por país",
-            lista_paises,
-            default=lista_paises
-        )
+        paises = sorted(df["País"].dropna().unique().tolist())
 
-        df = df[df["País"].isin(paises_selecionados)].copy()
-
-        if df.empty:
-            st.warning("Nenhum jogo restou após o filtro por país.")
-            st.stop()
-
-        lista_competicoes = sorted(df["Competição"].dropna().unique().tolist())
-        selecionadas = st.multiselect(
-            "Competições encontradas na data (A-Z)",
-            lista_competicoes,
-            default=lista_competicoes
-        )
-
-        df_filtrado = df[df["Competição"].isin(selecionadas)].copy()
-
-        if df_filtrado.empty:
-            st.warning("Nenhum jogo restou após o filtro.")
-            st.stop()
-
-        st.success(f"{len(df_filtrado)} jogo(s) analisado(s) em {len(selecionadas)} competição(ões).")
+        st.success(f"{len(df)} jogo(s) analisado(s) em {len(paises)} país(es).")
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Jogos", len(df_filtrado))
-        c2.metric("Países", len(paises_selecionados))
-        c3.metric("Risco baixo", int((df_filtrado["Risco"] == "Baixo").sum()))
-        c4.metric("Confiança média", f"{round(df_filtrado['Confiança'].mean(), 1)}%")
+        c1.metric("Jogos", len(df))
+        c2.metric("Países", len(paises))
+        c3.metric("Risco baixo", int((df["Risco"] == "Baixo").sum()))
+        c4.metric("Confiança média", f"{round(df['Confiança'].mean(), 1)}%")
 
-        mostrar = df_filtrado.copy()
-        mostrar["Confiança"] = mostrar["Confiança"].astype(int).astype(str) + "%"
+        abas = st.tabs(paises)
 
-        st.dataframe(mostrar, use_container_width=True, hide_index=True)
+        for i, pais in enumerate(paises):
+            with abas[i]:
+                df_pais = df[df["País"] == pais].copy()
 
-        csv = mostrar.to_csv(index=False).encode("utf-8-sig")
-        st.download_button(
-            "Baixar CSV",
-            data=csv,
-            file_name=f"analise_jogos_{data_escolhida}.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
+                competicoes_pais = sorted(df_pais["Competição"].dropna().unique().tolist())
+                selecionadas = st.multiselect(
+                    f"Competições em {pais}",
+                    competicoes_pais,
+                    default=competicoes_pais,
+                    key=f"comp_{pais}"
+                )
+
+                df_pais = df_pais[df_pais["Competição"].isin(selecionadas)].copy()
+
+                if df_pais.empty:
+                    st.warning(f"Nenhum jogo restou em {pais} após o filtro.")
+                    continue
+
+                mostrar = df_pais.copy()
+                mostrar["Confiança"] = mostrar["Confiança"].astype(int).astype(str) + "%"
+
+                st.dataframe(mostrar, use_container_width=True, hide_index=True)
+
+                csv = mostrar.to_csv(index=False).encode("utf-8-sig")
+                st.download_button(
+                    f"Baixar CSV - {pais}",
+                    data=csv,
+                    file_name=f"analise_{pais}_{data_escolhida}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key=f"csv_{pais}"
+                )
 
     except Exception as e:
         st.error(f"Erro ao buscar dados: {e}")
