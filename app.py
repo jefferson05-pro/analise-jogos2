@@ -6,7 +6,7 @@ from datetime import date, timedelta
 st.set_page_config(page_title="Análise de Jogos", layout="wide")
 
 st.title("📊 Análise de Jogos")
-st.caption("Análise automática com competições disponíveis na API, em ordem alfabética")
+st.caption("Análise automática das competições acessíveis na API, em ordem alfabética")
 
 API_TOKEN = st.secrets.get("FOOTBALL_DATA_API_TOKEN", None)
 
@@ -17,12 +17,22 @@ if not API_TOKEN:
 HEADERS = {"X-Auth-Token": API_TOKEN}
 
 
-def buscar_jogos(data_escolhida):
-    url = "https://api.football-data.org/v4/matches"
+def listar_competicoes():
+    url = "https://api.football-data.org/v4/competitions"
+    resposta = requests.get(url, headers=HEADERS, timeout=30)
+    resposta.raise_for_status()
+    return resposta.json().get("competitions", [])
+
+
+def buscar_jogos_competicao(codigo_competicao, data_escolhida):
+    url = f"https://api.football-data.org/v4/competitions/{codigo_competicao}/matches"
     params = {
-        "date": data_escolhida.isoformat(),
+        "dateFrom": data_escolhida.isoformat(),
+        "dateTo": data_escolhida.isoformat(),
     }
     resposta = requests.get(url, headers=HEADERS, params=params, timeout=30)
+    if resposta.status_code == 400:
+        return []
     resposta.raise_for_status()
     return resposta.json().get("matches", [])
 
@@ -72,6 +82,8 @@ def buscar_forma_time(team_id, data_escolhida):
     }
 
     resposta = requests.get(url, headers=HEADERS, params=params, timeout=30)
+    if resposta.status_code == 400:
+        return {"pts": 1.0, "gf": 1.0, "ga": 1.0}
     resposta.raise_for_status()
     partidas = resposta.json().get("matches", [])[-5:]
 
@@ -139,15 +151,37 @@ data_escolhida = st.date_input("Escolha a data dos jogos", value=date.today())
 
 if st.button("Analisar agora"):
     try:
-        partidas = buscar_jogos(data_escolhida)
+        competicoes = listar_competicoes()
 
-        if not partidas:
-            st.warning("Nenhum jogo encontrado para essa data.")
+        if not competicoes:
+            st.warning("Nenhuma competição acessível foi encontrada para este token.")
+            st.stop()
+
+        todas_partidas = []
+
+        with st.spinner("Buscando competições e jogos da data..."):
+            for comp in competicoes:
+                codigo = comp.get("code")
+                nome = comp.get("name", "Sem competição")
+
+                if not codigo:
+                    continue
+
+                partidas = buscar_jogos_competicao(codigo, data_escolhida)
+
+                for partida in partidas:
+                    partida["competition"] = partida.get("competition", {})
+                    if not partida["competition"].get("name"):
+                        partida["competition"]["name"] = nome
+                    todas_partidas.append(partida)
+
+        if not todas_partidas:
+            st.warning("Nenhum jogo encontrado nas competições acessíveis para essa data.")
             st.stop()
 
         linhas = []
 
-        for partida in partidas:
+        for partida in todas_partidas:
             home = partida.get("homeTeam", {})
             away = partida.get("awayTeam", {})
 
@@ -184,12 +218,12 @@ if st.button("Analisar agora"):
 
         df = df.sort_values(["Competição", "Horário", "Jogo"]).reset_index(drop=True)
 
-        competicoes = sorted(df["Competição"].dropna().unique().tolist())
+        lista_competicoes = sorted(df["Competição"].dropna().unique().tolist())
 
         selecionadas = st.multiselect(
             "Competições encontradas na data (A-Z)",
-            competicoes,
-            default=competicoes
+            lista_competicoes,
+            default=lista_competicoes
         )
 
         df_filtrado = df[df["Competição"].isin(selecionadas)].copy()
