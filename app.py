@@ -19,7 +19,7 @@ HEADERS = {"X-Auth-Token": API_TOKEN}
 
 def listar_competicoes():
     url = "https://api.football-data.org/v4/competitions"
-    resposta = requests.get(url, headers=HEADERS, timeout=30)
+    resposta = requests.get(url, timeout=30)  # sem token
     resposta.raise_for_status()
     return resposta.json().get("competitions", [])
 
@@ -31,8 +31,10 @@ def buscar_jogos_competicao(codigo_competicao, data_escolhida):
         "dateTo": data_escolhida.isoformat(),
     }
     resposta = requests.get(url, headers=HEADERS, params=params, timeout=30)
-    if resposta.status_code == 400:
+
+    if resposta.status_code in (400, 403, 404):
         return []
+
     resposta.raise_for_status()
     return resposta.json().get("matches", [])
 
@@ -82,8 +84,10 @@ def buscar_forma_time(team_id, data_escolhida):
     }
 
     resposta = requests.get(url, headers=HEADERS, params=params, timeout=30)
-    if resposta.status_code == 400:
+
+    if resposta.status_code in (400, 403, 404):
         return {"pts": 1.0, "gf": 1.0, "ga": 1.0}
+
     resposta.raise_for_status()
     partidas = resposta.json().get("matches", [])[-5:]
 
@@ -154,7 +158,7 @@ if st.button("Analisar agora"):
         competicoes = listar_competicoes()
 
         if not competicoes:
-            st.warning("Nenhuma competição acessível foi encontrada para este token.")
+            st.warning("Nenhuma competição encontrada.")
             st.stop()
 
         todas_partidas = []
@@ -170,7 +174,8 @@ if st.button("Analisar agora"):
                 partidas = buscar_jogos_competicao(codigo, data_escolhida)
 
                 for partida in partidas:
-                    partida["competition"] = partida.get("competition", {})
+                    if not partida.get("competition"):
+                        partida["competition"] = {}
                     if not partida["competition"].get("name"):
                         partida["competition"]["name"] = nome
                     todas_partidas.append(partida)
@@ -240,15 +245,6 @@ if st.button("Analisar agora"):
         mostrar["Confiança"] = mostrar["Confiança"].astype(int).astype(str) + "%"
 
         st.dataframe(mostrar, use_container_width=True, hide_index=True)
-
-        csv = mostrar.to_csv(index=False).encode("utf-8-sig")
-        st.download_button(
-            "Baixar CSV",
-            data=csv,
-            file_name=f"analise_jogos_{data_escolhida}.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
 
     except Exception as e:
         st.error(f"Erro ao buscar dados: {e}")
