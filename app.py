@@ -16,203 +16,20 @@ if not API_TOKEN:
 
 HEADERS = {"X-Auth-Token": API_TOKEN}
 
-LIGAS_PRIORITARIAS = [
-    "Copa Libertadores",
-    "Copa Sul-Americana",
-    "Liga dos Campeões",
-    "Champions League",
-    "Copa do Nordeste",
-    "Copa do Nordeste Superbet",
-    "Parva Liga",
-    "Primera División",
-    "Prva Liga",
-    "Liga Nacional",
-    "Premier League",
-    "Liga Profesional",
-    "Bundesliga",
-    "Liga Jupiler",
-    "Brasileirão Betano",
-    "Brasileirão Série A",
-    "Brasileirão Série B",
-    "Premier League do Canadá",
-    "Liga de Primera",
-    "Primeira A",
-    "Liga Pro",
-    "Liga Nike",
-    "LaLiga2",
-    "Copa do Rei",
-    "MLS",
-    "USL Championship",
-    "Ligue 1",
-    "Superliga",
-    "NB I",
-    "Championship",
-    "Serie A",
-    "Serie B",
-    "Liga MX",
-    "Liga de Expansão MX",
-    "Liga Primera",
-    "Eliteserien",
-    "Copa de Primera",
-    "Liga 1",
-    "Liga Portugal",
-    "Primeira Liga",
-    "Chance Liga",
-    "Super Lig",
-    "Liga AUF Uruguaia",
-    "Liga FUTVE",
-    "Liga dos Campeões da CAF",
-    "Premiership",
-    "Campeonato da Fundação Motsepe",
-    "Diski Challenge",
-    "2. Bundesliga",
-    "Série C",
-    "Série D",
-    "Alagoano 2",
-    "Carioca 2",
-    "Cearense 2",
-    "Matogrossense 2",
-    "Paranaense 2",
-    "Paulista A3",
-    "Paulista A4",
-    "Liga de Ascenso",
-    "Segunda División",
-    "League One",
-    "Copa da FA",
-    "Liga do Chipre",
-    "Divisão 2",
-    "Primeira B",
-    "Liga K1",
-    "HNL",
-    "Prva NL",
-    "Druga NL",
-    "1ª Divisão",
-    "2ª Divisão",
-    "Terceira Divisão",
-    "Divisão 1",
-    "Scottish Premiership",
-    "Scottish Championship",
-    "Scottish League One",
-    "Scottish League Two",
-    "Escócia Premiership",
-    "Escócia Championship",
-    "Eslovênia Prva Liga",
-    "PrvaLiga",
-    "Eslováquia Liga Nike",
-    "Romênia Liga I",
-    "Romênia SuperLiga",
-    "SuperLiga",
-    "Sérvia Super Liga",
-    "Polônia Ekstraklasa",
-    "Suécia Allsvenskan",
-    "Suécia Superettan",
-    "Tunísia Ligue Professionnelle 1",
-    "Ucrânia Premier League",
-    "Guatemala Liga Nacional",
+# Lista fixa de competições/códigos
+# Alguns códigos podem não estar disponíveis no seu plano/token.
+COMPETICOES_FIXAS = [
+    {"code": "CL", "name": "Champions League", "country": "Europa"},
+    {"code": "BSA", "name": "Brasileirão Série A", "country": "Brasil"},
+    {"code": "PL", "name": "Premier League", "country": "Inglaterra"},
+    {"code": "ELC", "name": "Championship", "country": "Inglaterra"},
+    {"code": "BL1", "name": "Bundesliga", "country": "Alemanha"},
+    {"code": "SA", "name": "Serie A", "country": "Itália"},
+    {"code": "FL1", "name": "Ligue 1", "country": "França"},
+    {"code": "DED", "name": "Eredivisie", "country": "Holanda"},
+    {"code": "PPL", "name": "Primeira Liga", "country": "Portugal"},
+    {"code": "PD", "name": "La Liga", "country": "Espanha"},
 ]
-
-MAPA_PAISES = {
-    "Copa Libertadores": "América do Sul",
-    "Copa Sul-Americana": "América do Sul",
-    "Liga dos Campeões": "Europa",
-    "Champions League": "Europa",
-    "Copa do Nordeste": "Brasil",
-    "Copa do Nordeste Superbet": "Brasil",
-    "Parva Liga": "Bulgária",
-    "Primera División": "El Salvador",
-    "Prva Liga": "Eslovênia",
-    "Liga Nacional": "Honduras",
-    "Premier League": "Inglaterra",
-    "Liga Profesional": "Argentina",
-    "Bundesliga": "Alemanha",
-    "Liga Jupiler": "Bélgica",
-    "Brasileirão Betano": "Brasil",
-    "Brasileirão Série A": "Brasil",
-    "Brasileirão Série B": "Brasil",
-    "Premier League do Canadá": "Canadá",
-    "Liga de Primera": "Chile",
-    "Primeira A": "Colômbia",
-    "Liga Pro": "Equador",
-    "Liga Nike": "Eslováquia",
-    "LaLiga2": "Espanha",
-    "Copa do Rei": "Espanha",
-    "MLS": "EUA",
-    "USL Championship": "EUA",
-    "Ligue 1": "França",
-    "Superliga": "Grécia",
-    "NB I": "Hungria",
-    "Championship": "Inglaterra",
-    "Serie A": "Itália",
-    "Serie B": "Itália",
-    "Liga MX": "México",
-    "Liga de Expansão MX": "México",
-    "Liga Primera": "Nicarágua",
-    "Eliteserien": "Noruega",
-    "Copa de Primera": "Paraguai",
-    "Liga 1": "Peru",
-    "Liga Portugal": "Portugal",
-    "Primeira Liga": "Portugal",
-    "Chance Liga": "República Tcheca",
-    "Super Lig": "Turquia",
-    "Liga AUF Uruguaia": "Uruguai",
-    "Liga FUTVE": "Venezuela",
-    "Liga dos Campeões da CAF": "África",
-    "Premiership": "África do Sul",
-    "Campeonato da Fundação Motsepe": "África do Sul",
-    "Diski Challenge": "África do Sul",
-    "2. Bundesliga": "Alemanha",
-    "Série C": "Brasil",
-    "Série D": "Brasil",
-    "Alagoano 2": "Brasil",
-    "Carioca 2": "Brasil",
-    "Cearense 2": "Brasil",
-    "Matogrossense 2": "Brasil",
-    "Paranaense 2": "Brasil",
-    "Paulista A3": "Brasil",
-    "Paulista A4": "Brasil",
-    "Liga de Ascenso": "Costa Rica",
-    "Segunda División": "Chile",
-    "League One": "China",
-    "Copa da FA": "China",
-    "Liga do Chipre": "Chipre",
-    "Divisão 2": "Chipre",
-    "Primeira B": "Colômbia",
-    "Liga K1": "Coreia do Sul",
-    "HNL": "Croácia",
-    "Prva NL": "Croácia",
-    "Druga NL": "Croácia",
-    "1ª Divisão": "Dinamarca",
-    "2ª Divisão": "Dinamarca",
-    "Terceira Divisão": "Dinamarca",
-    "Divisão 1": "Emirados Árabes",
-    "Scottish Premiership": "Escócia",
-    "Scottish Championship": "Escócia",
-    "Scottish League One": "Escócia",
-    "Scottish League Two": "Escócia",
-    "Escócia Premiership": "Escócia",
-    "Escócia Championship": "Escócia",
-    "Eslovênia Prva Liga": "Eslovênia",
-    "PrvaLiga": "Eslovênia",
-    "Eslováquia Liga Nike": "Eslováquia",
-    "Romênia Liga I": "Romênia",
-    "Romênia SuperLiga": "Romênia",
-    "SuperLiga": "Sérvia",
-    "Sérvia Super Liga": "Sérvia",
-    "Polônia Ekstraklasa": "Polônia",
-    "Suécia Allsvenskan": "Suécia",
-    "Suécia Superettan": "Suécia",
-    "Tunísia Ligue Professionnelle 1": "Tunísia",
-    "Ucrânia Premier League": "Ucrânia",
-    "Guatemala Liga Nacional": "Guatemala",
-}
-
-
-def listar_competicoes():
-    url = "https://api.football-data.org/v4/competitions"
-    resposta = requests.get(url, timeout=30)
-    resposta.raise_for_status()
-    return resposta.json().get("competitions", [])
-
 
 def buscar_jogos_competicao(codigo_competicao, data_escolhida):
     url = f"https://api.football-data.org/v4/competitions/{codigo_competicao}/matches"
@@ -222,12 +39,11 @@ def buscar_jogos_competicao(codigo_competicao, data_escolhida):
     }
     resposta = requests.get(url, headers=HEADERS, params=params, timeout=30)
 
-    if resposta.status_code in (400, 403, 404):
+    if resposta.status_code in (400, 401, 403, 404):
         return []
 
     resposta.raise_for_status()
     return resposta.json().get("matches", [])
-
 
 def pontos_resultado(time_id, partida):
     score = partida.get("score", {})
@@ -242,7 +58,6 @@ def pontos_resultado(time_id, partida):
     if winner == "AWAY_TEAM" and time_id == away_id:
         return 3
     return 0
-
 
 def gols_time(time_id, partida):
     full = partida.get("score", {}).get("fullTime", {})
@@ -260,7 +75,6 @@ def gols_time(time_id, partida):
         return away_goals, home_goals
     return 0, 0
 
-
 def buscar_forma_time(team_id, data_escolhida):
     data_inicio = (data_escolhida - timedelta(days=120)).isoformat()
     data_fim = (data_escolhida - timedelta(days=1)).isoformat()
@@ -275,7 +89,7 @@ def buscar_forma_time(team_id, data_escolhida):
 
     resposta = requests.get(url, headers=HEADERS, params=params, timeout=30)
 
-    if resposta.status_code in (400, 403, 404):
+    if resposta.status_code in (400, 401, 403, 404):
         return {"pts": 1.0, "gf": 1.0, "ga": 1.0}
 
     resposta.raise_for_status()
@@ -299,7 +113,6 @@ def buscar_forma_time(team_id, data_escolhida):
         "gf": round(sum(gols_feitos) / len(gols_feitos), 2),
         "ga": round(sum(gols_sofridos) / len(gols_sofridos), 2),
     }
-
 
 def classificar_jogo(casa, fora):
     forca_casa = (casa["pts"] * 1.8) + (casa["gf"] * 0.7) - (casa["ga"] * 0.5)
@@ -340,55 +153,25 @@ def classificar_jogo(casa, fora):
 
     return tendencia, gols, risco, confianca
 
-
-def eh_liga_prioritaria(nome_competicao):
-    nome = (nome_competicao or "").strip().lower()
-    lista = [liga.lower() for liga in LIGAS_PRIORITARIAS]
-    return any(liga in nome or nome in liga for liga in lista)
-
-
-def descobrir_pais(nome_competicao):
-    nome = (nome_competicao or "").strip().lower()
-
-    for liga, pais in MAPA_PAISES.items():
-        liga_lower = liga.lower()
-        if liga_lower in nome or nome in liga_lower:
-            return pais
-
-    return "Outros"
-
-
 data_escolhida = st.date_input("Escolha a data dos jogos", value=date.today())
 
 if st.button("Analisar agora"):
     try:
-        competicoes = listar_competicoes()
-
-        if not competicoes:
-            st.warning("Nenhuma competição encontrada.")
-            st.stop()
-
         todas_partidas = []
 
-        with st.spinner("Buscando competições e jogos da data..."):
-            for comp in competicoes:
-                codigo = comp.get("code")
-                nome = comp.get("name", "Sem competição")
-
-                if not codigo:
-                    continue
-
-                partidas = buscar_jogos_competicao(codigo, data_escolhida)
+        with st.spinner("Buscando jogos das competições configuradas..."):
+            for comp in COMPETICOES_FIXAS:
+                partidas = buscar_jogos_competicao(comp["code"], data_escolhida)
 
                 for partida in partidas:
                     if not partida.get("competition"):
                         partida["competition"] = {}
-                    if not partida["competition"].get("name"):
-                        partida["competition"]["name"] = nome
+                    partida["competition"]["name"] = comp["name"]
+                    partida["competition"]["area_name"] = comp["country"]
                     todas_partidas.append(partida)
 
         if not todas_partidas:
-            st.warning("Nenhum jogo encontrado nas competições acessíveis para essa data.")
+            st.warning("Nenhum jogo encontrado nas competições configuradas para essa data.")
             st.stop()
 
         linhas = []
@@ -403,11 +186,6 @@ if st.button("Analisar agora"):
             if not home_id or not away_id:
                 continue
 
-            nome_competicao = partida.get("competition", {}).get("name", "Sem competição")
-
-            if not eh_liga_prioritaria(nome_competicao):
-                continue
-
             forma_casa = buscar_forma_time(home_id, data_escolhida)
             forma_fora = buscar_forma_time(away_id, data_escolhida)
 
@@ -418,8 +196,8 @@ if st.button("Analisar agora"):
             ).tz_convert("America/Maceio").strftime("%d/%m %H:%M")
 
             linhas.append({
-                "País": descobrir_pais(nome_competicao),
-                "Competição": nome_competicao,
+                "País": partida.get("competition", {}).get("area_name", "Outros"),
+                "Competição": partida.get("competition", {}).get("name", "Sem competição"),
                 "Horário": horario,
                 "Jogo": f"{home.get('name', 'Mandante')} x {away.get('name', 'Visitante')}",
                 "Tendência": tendencia,
@@ -431,7 +209,7 @@ if st.button("Analisar agora"):
         df = pd.DataFrame(linhas)
 
         if df.empty:
-            st.warning("Nenhum jogo encontrado dentro da sua lista principal de ligas.")
+            st.warning("Nenhum jogo válido encontrado.")
             st.stop()
 
         df = df.sort_values(["País", "Competição", "Horário", "Jogo"]).reset_index(drop=True)
@@ -452,34 +230,10 @@ if st.button("Analisar agora"):
             with abas[i]:
                 df_pais = df[df["País"] == pais].copy()
 
-                competicoes_pais = sorted(df_pais["Competição"].dropna().unique().tolist())
-                selecionadas = st.multiselect(
-                    f"Competições em {pais}",
-                    competicoes_pais,
-                    default=competicoes_pais,
-                    key=f"comp_{pais}"
-                )
-
-                df_pais = df_pais[df_pais["Competição"].isin(selecionadas)].copy()
-
-                if df_pais.empty:
-                    st.warning(f"Nenhum jogo restou em {pais} após o filtro.")
-                    continue
-
                 mostrar = df_pais.copy()
                 mostrar["Confiança"] = mostrar["Confiança"].astype(int).astype(str) + "%"
 
                 st.dataframe(mostrar, use_container_width=True, hide_index=True)
-
-                csv = mostrar.to_csv(index=False).encode("utf-8-sig")
-                st.download_button(
-                    f"Baixar CSV - {pais}",
-                    data=csv,
-                    file_name=f"analise_{pais}_{data_escolhida}.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                    key=f"csv_{pais}"
-                )
 
     except Exception as e:
         st.error(f"Erro ao buscar dados: {e}")
