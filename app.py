@@ -20,8 +20,7 @@ HEADERS = {"X-Auth-Token": API_TOKEN}
 def buscar_jogos(data_escolhida):
     url = "https://api.football-data.org/v4/matches"
     params = {
-        "dateFrom": data_escolhida.isoformat(),
-        "dateTo": data_escolhida.isoformat(),
+        "date": data_escolhida.isoformat(),
     }
     resposta = requests.get(url, headers=HEADERS, params=params, timeout=30)
     resposta.raise_for_status()
@@ -183,10 +182,8 @@ if st.button("Analisar agora"):
             st.warning("Nenhum jogo válido encontrado.")
             st.stop()
 
-        # A-Z por competição e depois horário
         df = df.sort_values(["Competição", "Horário", "Jogo"]).reset_index(drop=True)
 
-        # Lista automática de competições disponíveis na data
         competicoes = sorted(df["Competição"].dropna().unique().tolist())
 
         selecionadas = st.multiselect(
