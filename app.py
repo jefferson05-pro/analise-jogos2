@@ -14,13 +14,6 @@ if not API_KEY:
 BASE_URL = "https://v3.football.api-sports.io"
 HEADERS = {"x-apisports-key": API_KEY}
 
-PAISES_PRIORITARIOS = [
-    "Scotland", "Slovenia", "Slovakia", "Guatemala", "Romania",
-    "Serbia", "Poland", "Sweden", "Tunisia", "Ukraine",
-    "Brazil", "Argentina", "England", "France", "Germany",
-    "Italy", "Portugal", "Spain", "USA", "Mexico"
-]
-
 TRADUCOES_PAISES = {
     "Scotland": "Escócia",
     "Slovenia": "Eslovênia",
@@ -81,6 +74,45 @@ def buscar_fixtures_por_data(data_escolhida: str):
     r.raise_for_status()
     return r.json().get("response", [])
 
+@st.cache_data(ttl=900, show_spinner=False)
+def buscar_classificacao(league_id: int, season: int):
+    url = f"{BASE_URL}/standings"
+    params = {
+        "league": league_id,
+        "season": season,
+    }
+    r = requests.get(url, headers=HEADERS, params=params, timeout=30)
+    if r.status_code in (400, 401, 403, 404):
+        return {}
+    r.raise_for_status()
+    data = r.json().get("response", [])
+    if not data:
+        return {}
+
+    # A API pode retornar grupos; juntamos todos os times
+    tabela = {}
+    league_block = data[0].get("league", {})
+    standings_groups = league_block.get("standings", [])
+
+    for group in standings_groups:
+        for row in group:
+            team = row.get("team", {})
+            team_id = team.get("id")
+            all_stats = row.get("all", {})
+            tabela[team_id] = {
+                "rank": row.get("rank"),
+                "points": row.get("points", 0),
+                "played": all_stats.get("played", 0),
+                "win": all_stats.get("win", 0),
+                "draw": all_stats.get("draw", 0),
+                "lose": all_stats.get("lose", 0),
+                "goals_for": all_stats.get("goals", {}).get("for", 0),
+                "goals_against": all_stats.get("goals", {}).get("against", 0),
+                "goal_diff": row.get("goalsDiff", 0),
+                "form": row.get("form", ""),
+            }
+    return tabela
+
 def risco_por_status(status_curto: str) -> str:
     if status_curto in ["NS", "TBD"]:
         return "Médio"
@@ -92,22 +124,14 @@ def risco_por_status(status_curto: str) -> str:
 
 def pontuar_jogo(item: dict) -> int:
     league = item.get("league", {})
-    teams = item.get("teams", {})
     fixture = item.get("fixture", {})
     status_short = fixture.get("status", {}).get("short", "")
 
     score = 0
     league_name = (league.get("name") or "").lower()
-    country_name = league.get("country") or ""
 
     if any(liga.lower() in league_name for liga in [x.lower() for x in LIGAS_DESTAQUE]):
         score += 35
-
-    if country_name in PAISES_PRIORITARIOS:
-        score += 15
-
-    if teams.get("home", {}).get("winner") is None and teams.get("away", {}).get("winner") is None:
-        score += 10
 
     if status_short in ["NS", "TBD"]:
         score += 20
@@ -122,65 +146,102 @@ def pontuar_jogo(item: dict) -> int:
 
     return score
 
-def estimar_leitura(item: dict):
+def score_form_string(form: str) -> float:
+    # W=3, D=1, L=0
+    pts = 0
+    for ch in (form or "").upper():
+        if ch == "W":
+            pts += 3
+        elif ch == "D":
+            pts += 1
+    return pts
+
+def estimar_leitura_por_tabela(item: dict):
     league = item.get("league", {})
     teams = item.get("teams", {})
-    fixture = item.get("fixture", {})
 
-    league_name = (league.get("name") or "").lower()
-    country_name = league.get("country") or ""
+    league_name = league.get("name", "")
+    league_id = league.get("id")
+    season = league.get("season")
 
-    home = teams.get("home", {}).get("name", "")
-    away = teams.get("away", {}).get("name", "")
+    home = teams.get("home", {})
+    away = teams.get("away", {})
+    home_id = home.get("id")
+    away_id = away.get("id")
+    home_name = home.get("name", "Mandante")
+    away_name = away.get("name", "Visitante")
 
-    score_home = 50
-    score_away = 50
+    tabela = buscar_classificacao(league_id, season) if league_id and season else {}
 
-    if any(liga.lower() in league_name for liga in [x.lower() for x in LIGAS_DESTAQUE]):
-        score_home += 5
-        score_away += 5
+    # fallback neutro quando não houver tabela
+    if not tabela or home_id not in tabela or away_id not in tabela:
+        return "Empate bem possível", "Média", 55, "Sem dados completos de tabela; cenário equilibrado."
 
-    if country_name in PAISES_PRIORITARIOS:
-        score_home += 3
-        score_away += 3
+    h = tabela[home_id]
+    a = tabela[away_id]
 
-    score_home += 5
+    # score de força simples
+    # mais pontos, melhor rank, saldo, forma recente
+    score_home = 0.0
+    score_away = 0.0
 
-    delta = score_home - score_away
+    score_home += h["points"] * 1.0
+    score_away += a["points"] * 1.0
 
+    score_home += h["goal_diff"] * 0.35
+    score_away += a["goal_diff"] * 0.35
+
+    score_home += score_form_string(h["form"]) * 0.8
+    score_away += score_form_string(a["form"]) * 0.8
+
+    # rank menor é melhor
+    if h["rank"] and a["rank"]:
+        score_home += max(0, 25 - h["rank"]) * 0.8
+        score_away += max(0, 25 - a["rank"]) * 0.8
+
+    # mando leve, mas não dominante
+    score_home += 2.0
+
+    delta = round(score_home - score_away, 2)
+
+    # favoritismo de 3 vias
     if delta >= 8:
-        favoritismo = "Mandante ligeiramente à frente"
-        confianca = 68
+        favoritismo = "Mandante mais forte"
+        confianca = 73
     elif delta >= 3:
         favoritismo = "Mandante com leve vantagem"
-        confianca = 61
+        confianca = 64
     elif delta <= -8:
-        favoritismo = "Visitante ligeiramente à frente"
-        confianca = 68
+        favoritismo = "Visitante mais forte"
+        confianca = 73
     elif delta <= -3:
         favoritismo = "Visitante com leve vantagem"
-        confianca = 61
+        confianca = 64
     else:
-        favoritismo = "Jogo equilibrado"
-        confianca = 56
+        favoritismo = "Empate bem possível"
+        confianca = 58
 
-    liga_forte = any(liga.lower() in league_name for liga in [x.lower() for x in LIGAS_DESTAQUE])
+    # tendência de gols
+    gols_por_jogo_home = (h["goals_for"] + h["goals_against"]) / h["played"] if h["played"] else 0
+    gols_por_jogo_away = (a["goals_for"] + a["goals_against"]) / a["played"] if a["played"] else 0
+    media_total = (gols_por_jogo_home + gols_por_jogo_away) / 2
 
-    if liga_forte:
-        gols = "Alta"
+    if media_total >= 3.0:
+        tendencia_gols = "Alta"
+    elif media_total >= 2.2:
+        tendencia_gols = "Média"
     else:
-        gols = "Média"
+        tendencia_gols = "Baixa"
 
-    if favoritismo == "Jogo equilibrado" and gols == "Alta":
-        resumo = "Equilíbrio alto e tendência de jogo aberto."
+    # resumo curto
+    if favoritismo == "Empate bem possível":
+        resumo = "Diferença pequena entre os times na tabela."
     elif "Mandante" in favoritismo:
-        resumo = f"{home} aparece um pouco melhor no cenário."
-    elif "Visitante" in favoritismo:
-        resumo = f"{away} aparece um pouco melhor no cenário."
+        resumo = f"{home_name} aparece melhor na classificação e no momento recente."
     else:
-        resumo = "Jogo sem favorito claro."
+        resumo = f"{away_name} aparece melhor na classificação e no momento recente."
 
-    return favoritismo, gols, confianca, resumo
+    return favoritismo, tendencia_gols, confianca, resumo
 
 def montar_linha(item: dict) -> dict:
     league = item.get("league", {})
@@ -194,10 +255,13 @@ def montar_linha(item: dict) -> dict:
     home = teams.get("home", {}).get("name", "Mandante")
     away = teams.get("away", {}).get("name", "Visitante")
     league_name = league.get("name", "Sem competição")
-    rodada = league.get("round", "")
+    horario_raw = fixture.get("date", "")
     status_long = fixture.get("status", {}).get("long", "")
     status_short = fixture.get("status", {}).get("short", "")
-    horario_raw = fixture.get("date", "")
+
+    horario = ""
+    if horario_raw:
+        horario = pd.to_datetime(horario_raw).strftime("%d/%m %H:%M")
 
     gols_casa = goals.get("home")
     gols_fora = goals.get("away")
@@ -205,16 +269,11 @@ def montar_linha(item: dict) -> dict:
     if gols_casa is not None and gols_fora is not None:
         placar = f"{gols_casa} x {gols_fora}"
 
-    horario = ""
-    if horario_raw:
-        horario = pd.to_datetime(horario_raw).strftime("%d/%m %H:%M")
-
-    favoritismo, tendencia_gols, confianca_modelo, resumo = estimar_leitura(item)
+    favoritismo, tendencia_gols, confianca, resumo = estimar_leitura_por_tabela(item)
 
     return {
         "País": pais,
         "Competição": league_name,
-        "Rodada": rodada,
         "Horário": horario,
         "Jogo": f"{home} x {away}",
         "Placar": placar,
@@ -223,18 +282,18 @@ def montar_linha(item: dict) -> dict:
         "Nota": pontuar_jogo(item),
         "Favoritismo": favoritismo,
         "Tendência de gols": tendencia_gols,
-        "Confiança": confianca_modelo,
+        "Confiança": confianca,
         "Resumo": resumo,
     }
 
-def badge_text(risco, gols):
-    return f"{risco} • Gols {gols}"
+def linha_resumo(row):
+    return f"{row['Favoritismo']} | Gols {row['Tendência de gols']} | Confiança {row['Confiança']}"
 
 def render_card_3_linhas(row):
     with st.container(border=True):
         st.markdown(f"**{row['Jogo']}**")
         st.caption(f"{row['País']} • {row['Competição']} • {row['Horário']}")
-        st.write(f"{row['Favoritismo']} | {badge_text(row['Risco'], row['Tendência de gols'])} | Confiança {row['Confiança']}")
+        st.write(linha_resumo(row))
 
 st.markdown("""
 <style>
@@ -257,7 +316,7 @@ div[data-testid="stMetric"] {
 """, unsafe_allow_html=True)
 
 st.title("📊 Análise de Jogos")
-st.caption("Leitura neutra dos jogos do dia")
+st.caption("Leitura neutra dos jogos do dia com 3 saídas: mandante, empate ou visitante")
 
 data_escolhida = st.date_input("Escolha a data dos jogos", value=date.today())
 
