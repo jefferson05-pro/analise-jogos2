@@ -134,7 +134,6 @@ def estimar_leitura(item: dict):
     home = teams.get("home", {}).get("name", "")
     away = teams.get("away", {}).get("name", "")
 
-    # Heurística neutra e simples
     score_home = 50
     score_away = 50
 
@@ -146,7 +145,6 @@ def estimar_leitura(item: dict):
         score_home += 3
         score_away += 3
 
-    # vantagem leve de mando neutra
     score_home += 5
 
     delta = score_home - score_away
@@ -266,51 +264,91 @@ def cor_gols(tendencia: str) -> str:
     return "#0ea5e9"
 
 def render_card(row, compact=False):
-    cor = cor_risco(row["Risco"])
+    risco = row["Risco"]
+    cor = cor_risco(risco)
     cor_g = cor_gols(row["Tendência de gols"])
 
-    size_title = "19px" if not compact else "17px"
-    pad = "16px" if not compact else "14px"
+    size_title = "18px" if compact else "20px"
+    pad = "14px" if compact else "16px"
 
     html = f"""
     <div style="
-        background:#111827;
-        border:1px solid #1f2937;
+        background:#0f172a;
+        border:1px solid #1e293b;
         border-radius:18px;
         padding:{pad};
         margin-bottom:12px;
-        box-shadow:0 1px 6px rgba(0,0,0,0.20);
+        box-shadow:0 2px 10px rgba(0,0,0,0.18);
     ">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-            <div style="font-size:13px;color:#9ca3af;">{row["País"]} • {row["Competição"]}</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
-                <span style="background:{cor};color:white;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700;">
-                    {row["Risco"]}
-                </span>
-                <span style="background:{cor_g};color:white;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700;">
-                    Gols {row["Tendência de gols"]}
-                </span>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+            <div style="font-size:13px;color:#94a3b8;">
+                {row["País"]} • {row["Competição"]}
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <span style="
+                    background:{cor};
+                    color:white;
+                    padding:5px 10px;
+                    border-radius:999px;
+                    font-size:12px;
+                    font-weight:700;
+                ">{row["Risco"]}</span>
+
+                <span style="
+                    background:{cor_g};
+                    color:white;
+                    padding:5px 10px;
+                    border-radius:999px;
+                    font-size:12px;
+                    font-weight:700;
+                ">Gols {row["Tendência de gols"]}</span>
             </div>
         </div>
 
-        <div style="font-size:{size_title};font-weight:800;color:white;margin-top:10px;">
+        <div style="
+            font-size:{size_title};
+            font-weight:800;
+            color:#f8fafc;
+            margin-top:10px;
+            line-height:1.3;
+        ">
             {row["Jogo"]}
         </div>
 
-        <div style="font-size:13px;color:#cbd5e1;margin-top:8px;line-height:1.7;">
-            ⏰ {row["Horário"] if row["Horário"] else "-"}<br>
-            🏆 {row["Rodada"] if row["Rodada"] else "Rodada não informada"}
+        <div style="
+            margin-top:10px;
+            font-size:13px;
+            color:#cbd5e1;
+            line-height:1.7;
+        ">
+            <div>⏰ {row["Horário"] if row["Horário"] else "-"}</div>
+            <div>🏆 {row["Rodada"] if row["Rodada"] else "Rodada não informada"}</div>
         </div>
 
-        <div style="font-size:14px;color:#e5e7eb;margin-top:10px;font-weight:700;">
+        <div style="
+            margin-top:10px;
+            font-size:14px;
+            font-weight:700;
+            color:#e2e8f0;
+        ">
             {row["Favoritismo"]}
         </div>
 
-        <div style="font-size:13px;color:#94a3b8;margin-top:8px;line-height:1.7;">
+        <div style="
+            margin-top:8px;
+            font-size:13px;
+            color:#94a3b8;
+            line-height:1.6;
+        ">
             Status: {row["Status"]} • Leitura: {row["Leitura"]} • Confiança: {row["Confiança"]} • Nota: {row["Nota"]}
         </div>
 
-        <div style="font-size:13px;color:#d1d5db;margin-top:10px;line-height:1.6;">
+        <div style="
+            margin-top:10px;
+            font-size:13px;
+            color:#e5e7eb;
+            line-height:1.6;
+        ">
             {row["Resumo"]}
         </div>
     </div>
@@ -320,14 +358,27 @@ def render_card(row, compact=False):
 st.markdown("""
 <style>
 .block-container {
-    padding-top: 1.2rem;
+    padding-top: 1rem;
     padding-bottom: 2rem;
+    max-width: 860px;
 }
+
 div[data-testid="stForm"] {
     border: 1px solid #1f2937;
     border-radius: 16px;
     padding: 12px 12px 4px 12px;
+    background: #0b1220;
+}
+
+div[data-testid="stMetric"] {
     background: #0f172a;
+    border: 1px solid #1e293b;
+    padding: 10px;
+    border-radius: 14px;
+}
+
+h1, h2, h3 {
+    color: #f8fafc;
 }
 </style>
 """, unsafe_allow_html=True)
