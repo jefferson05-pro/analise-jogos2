@@ -5,9 +5,6 @@ from datetime import date
 
 st.set_page_config(page_title="Análise de Jogos", layout="wide")
 
-st.title("📊 Análise de Jogos")
-st.caption("API-Football • ranking automático com cards e filtros estáveis")
-
 API_KEY = st.secrets.get("API_FOOTBALL_KEY")
 
 if not API_KEY:
@@ -100,7 +97,6 @@ def pontuar_jogo(item: dict) -> int:
     status_short = fixture.get("status", {}).get("short", "")
 
     score = 0
-
     league_name = (league.get("name") or "").lower()
     country_name = league.get("country") or ""
 
@@ -121,7 +117,7 @@ def pontuar_jogo(item: dict) -> int:
         score += 3
 
     round_name = (league.get("round") or "").lower()
-    if any(x in round_name for x in ["quarter", "semi", "final", "playoff", "rodada 1", "round 1"]):
+    if any(x in round_name for x in ["quarter", "semi", "final", "playoff"]):
         score += 8
 
     return score
@@ -138,13 +134,13 @@ def montar_linha(item: dict) -> dict:
     home = teams.get("home", {}).get("name", "Mandante")
     away = teams.get("away", {}).get("name", "Visitante")
     league_name = league.get("name", "Sem competição")
-    horario = fixture.get("date", "")
+    rodada = league.get("round", "")
     status_long = fixture.get("status", {}).get("long", "")
     status_short = fixture.get("status", {}).get("short", "")
-    rodada = league.get("round", "")
+    horario_raw = fixture.get("date", "")
+
     gols_casa = goals.get("home")
     gols_fora = goals.get("away")
-
     placar = "-"
     if gols_casa is not None and gols_fora is not None:
         placar = f"{gols_casa} x {gols_fora}"
@@ -157,19 +153,21 @@ def montar_linha(item: dict) -> dict:
     elif status_short in ["FT", "AET", "PEN"]:
         leitura = "Finalizado"
 
-    nota = pontuar_jogo(item)
+    horario = ""
+    if horario_raw:
+        horario = pd.to_datetime(horario_raw).strftime("%d/%m %H:%M")
 
     return {
         "País": pais,
         "Competição": league_name,
         "Rodada": rodada,
-        "Horário": pd.to_datetime(horario).strftime("%d/%m %H:%M") if horario else "",
+        "Horário": horario,
         "Jogo": f"{home} x {away}",
         "Placar": placar,
         "Status": status_long,
         "Leitura": leitura,
         "Risco": risco_por_status(status_short),
-        "Nota": nota,
+        "Nota": pontuar_jogo(item),
     }
 
 def cor_risco(risco: str) -> str:
@@ -179,54 +177,92 @@ def cor_risco(risco: str) -> str:
         return "#d97706"
     if risco == "Ao vivo":
         return "#2563eb"
+    if risco == "Encerrado":
+        return "#6b7280"
     return "#6b7280"
 
-def render_card(row):
-    cor = cor_risco(row["Risco"])
-    st.markdown(
-        f"""
-        <div style="
-            border:1px solid #2a2f3a;
-            border-radius:16px;
-            padding:14px;
-            margin-bottom:12px;
-            background:#111827;
-        ">
-            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
-                <div style="font-size:15px;color:#9ca3af;">{row["País"]} • {row["Competição"]}</div>
-                <div style="
-                    background:{cor};
-                    color:white;
-                    padding:4px 10px;
-                    border-radius:999px;
-                    font-size:12px;
-                    font-weight:600;
-                ">{row["Risco"]}</div>
-            </div>
+def render_card(row, compact=False):
+    risco = row["Risco"]
+    cor = cor_risco(risco)
 
-            <div style="font-size:20px;font-weight:700;margin-top:10px;">
-                {row["Jogo"]}
-            </div>
+    meta1 = f"⏰ {row['Horário']}" if row["Horário"] else ""
+    meta2 = f"🏆 {row['Competição']}"
+    meta3 = f"📍 {row['País']}"
 
-            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:14px;">
-                <div><b>Horário:</b> {row["Horário"]}</div>
-                <div><b>Rodada:</b> {row["Rodada"]}</div>
-                <div><b>Placar:</b> {row["Placar"]}</div>
-            </div>
+    extras = []
+    if row["Rodada"]:
+        extras.append(f"Rodada: {row['Rodada']}")
+    if row["Placar"] and row["Placar"] != "-":
+        extras.append(f"Placar: {row['Placar']}")
+    extras.append(f"Status: {row['Status']}")
+    extras.append(f"Nota: {row['Nota']}")
 
-            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:14px;">
-                <div><b>Status:</b> {row["Status"]}</div>
-                <div><b>Leitura:</b> {row["Leitura"]}</div>
-                <div><b>Nota:</b> {row["Nota"]}</div>
-            </div>
+    extras_text = " • ".join(extras)
+
+    size_title = "20px" if not compact else "18px"
+    pad = "16px" if not compact else "14px"
+
+    html = f"""
+    <div style="
+        background:#111827;
+        border:1px solid #1f2937;
+        border-radius:18px;
+        padding:{pad};
+        margin-bottom:12px;
+        box-shadow:0 1px 6px rgba(0,0,0,0.20);
+    ">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+            <div style="font-size:13px;color:#9ca3af;">{meta3}</div>
+            <div style="
+                background:{cor};
+                color:white;
+                padding:5px 10px;
+                border-radius:999px;
+                font-size:12px;
+                font-weight:700;
+            ">{risco}</div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+
+        <div style="font-size:{size_title};font-weight:800;color:white;margin-top:10px;">
+            {row["Jogo"]}
+        </div>
+
+        <div style="font-size:13px;color:#cbd5e1;margin-top:8px;line-height:1.6;">
+            {meta1}<br>{meta2}
+        </div>
+
+        <div style="font-size:13px;color:#94a3b8;margin-top:10px;line-height:1.6;">
+            {extras_text}
+        </div>
+
+        <div style="font-size:13px;color:#e5e7eb;margin-top:10px;font-weight:600;">
+            {row["Leitura"]}
+        </div>
+    </div>
+    """
+    st.html(html)
+
+st.markdown("""
+<style>
+.block-container {
+    padding-top: 1.2rem;
+    padding-bottom: 2rem;
+}
+div[data-testid="stForm"] {
+    border: 1px solid #1f2937;
+    border-radius: 16px;
+    padding: 12px 12px 4px 12px;
+    background: #0f172a;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("📊 Análise de Jogos")
+st.caption("Ranking automático dos jogos do dia")
 
 data_escolhida = st.date_input("Escolha a data dos jogos", value=date.today())
 
-if st.button("Analisar agora"):
+if st.button("Analisar agora", use_container_width=True):
     try:
         resposta = buscar_fixtures_por_data(str(data_escolhida))
 
@@ -263,25 +299,22 @@ if st.button("Analisar agora"):
 if "df_jogos" in st.session_state:
     df = st.session_state["df_jogos"].copy()
 
-    st.success(f"{len(df)} jogo(s) encontrado(s). Ranking gerado com sucesso.")
-
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Jogos", len(df))
     c2.metric("Competições", df["Competição"].nunique())
     c3.metric("Países", df["País"].nunique())
-    c4.metric("Melhor nota", int(df["Nota"].max()))
+    c4.metric("Top nota", int(df["Nota"].max()))
 
     st.subheader("🏆 Top 10 jogos do dia")
     top10 = df.head(10).copy()
     for _, row in top10.iterrows():
-        render_card(row)
+        render_card(row, compact=True)
 
     st.subheader("🔎 Filtros")
-
     with st.form("form_filtros"):
         lista_paises = sorted(df["País"].dropna().unique().tolist())
         paises_selecionados = st.multiselect(
-            "Filtrar por país",
+            "Países",
             lista_paises,
             default=st.session_state.get("pais_filtro", lista_paises),
         )
@@ -297,12 +330,12 @@ if "df_jogos" in st.session_state:
             default_comp = lista_competicoes
 
         competicoes_selecionadas = st.multiselect(
-            "Filtrar por competição",
+            "Competições",
             lista_competicoes,
             default=default_comp,
         )
 
-        aplicar = st.form_submit_button("Aplicar filtros")
+        aplicar = st.form_submit_button("Aplicar filtros", use_container_width=True)
 
     if aplicar:
         st.session_state["pais_filtro"] = paises_selecionados
