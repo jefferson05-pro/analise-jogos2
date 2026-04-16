@@ -122,6 +122,77 @@ def pontuar_jogo(item: dict) -> int:
 
     return score
 
+def estimar_leitura(item: dict):
+    league = item.get("league", {})
+    teams = item.get("teams", {})
+    fixture = item.get("fixture", {})
+
+    league_name = (league.get("name") or "").lower()
+    country_name = league.get("country") or ""
+    status_short = fixture.get("status", {}).get("short", "")
+
+    home = teams.get("home", {}).get("name", "")
+    away = teams.get("away", {}).get("name", "")
+
+    # Heurística neutra e simples
+    score_home = 50
+    score_away = 50
+
+    if any(liga.lower() in league_name for liga in [x.lower() for x in LIGAS_DESTAQUE]):
+        score_home += 5
+        score_away += 5
+
+    if country_name in PAISES_PRIORITARIOS:
+        score_home += 3
+        score_away += 3
+
+    # vantagem leve de mando neutra
+    score_home += 5
+
+    delta = score_home - score_away
+
+    if delta >= 8:
+        favoritismo = "Mandante ligeiramente à frente"
+        confianca = 68
+    elif delta >= 3:
+        favoritismo = "Mandante com leve vantagem"
+        confianca = 61
+    elif delta <= -8:
+        favoritismo = "Visitante ligeiramente à frente"
+        confianca = 68
+    elif delta <= -3:
+        favoritismo = "Visitante com leve vantagem"
+        confianca = 61
+    else:
+        favoritismo = "Jogo equilibrado"
+        confianca = 56
+
+    liga_forte = any(liga.lower() in league_name for liga in [x.lower() for x in LIGAS_DESTAQUE])
+
+    if liga_forte and any(k in league_name for k in ["champions", "libertadores", "sudamericana", "serie a", "premier", "bundesliga", "ligue 1", "liga", "mls"]):
+        gols = "Alta"
+    elif liga_forte:
+        gols = "Média"
+    else:
+        gols = "Média"
+
+    if status_short in ["FT", "AET", "PEN"]:
+        resumo = "Jogo encerrado."
+    elif favoritismo == "Jogo equilibrado" and gols == "Alta":
+        resumo = "Confronto equilibrado com tendência de jogo aberto."
+    elif "Mandante" in favoritismo and gols == "Alta":
+        resumo = f"{home} chega com leve vantagem e tendência de jogo aberto."
+    elif "Visitante" in favoritismo and gols == "Alta":
+        resumo = f"{away} chega com leve vantagem e tendência de jogo aberto."
+    elif "Mandante" in favoritismo:
+        resumo = f"{home} aparece um pouco melhor no cenário do jogo."
+    elif "Visitante" in favoritismo:
+        resumo = f"{away} aparece um pouco melhor no cenário do jogo."
+    else:
+        resumo = "Jogo sem favorito claro."
+
+    return favoritismo, gols, confianca, resumo
+
 def montar_linha(item: dict) -> dict:
     league = item.get("league", {})
     teams = item.get("teams", {})
@@ -157,6 +228,8 @@ def montar_linha(item: dict) -> dict:
     if horario_raw:
         horario = pd.to_datetime(horario_raw).strftime("%d/%m %H:%M")
 
+    favoritismo, tendencia_gols, confianca_modelo, resumo = estimar_leitura(item)
+
     return {
         "País": pais,
         "Competição": league_name,
@@ -168,6 +241,10 @@ def montar_linha(item: dict) -> dict:
         "Leitura": leitura,
         "Risco": risco_por_status(status_short),
         "Nota": pontuar_jogo(item),
+        "Favoritismo": favoritismo,
+        "Tendência de gols": tendencia_gols,
+        "Confiança": confianca_modelo,
+        "Resumo": resumo,
     }
 
 def cor_risco(risco: str) -> str:
@@ -181,25 +258,18 @@ def cor_risco(risco: str) -> str:
         return "#6b7280"
     return "#6b7280"
 
+def cor_gols(tendencia: str) -> str:
+    if tendencia == "Alta":
+        return "#dc2626"
+    if tendencia == "Média":
+        return "#7c3aed"
+    return "#0ea5e9"
+
 def render_card(row, compact=False):
-    risco = row["Risco"]
-    cor = cor_risco(risco)
+    cor = cor_risco(row["Risco"])
+    cor_g = cor_gols(row["Tendência de gols"])
 
-    meta1 = f"⏰ {row['Horário']}" if row["Horário"] else ""
-    meta2 = f"🏆 {row['Competição']}"
-    meta3 = f"📍 {row['País']}"
-
-    extras = []
-    if row["Rodada"]:
-        extras.append(f"Rodada: {row['Rodada']}")
-    if row["Placar"] and row["Placar"] != "-":
-        extras.append(f"Placar: {row['Placar']}")
-    extras.append(f"Status: {row['Status']}")
-    extras.append(f"Nota: {row['Nota']}")
-
-    extras_text = " • ".join(extras)
-
-    size_title = "20px" if not compact else "18px"
+    size_title = "19px" if not compact else "17px"
     pad = "16px" if not compact else "14px"
 
     html = f"""
@@ -212,35 +282,40 @@ def render_card(row, compact=False):
         box-shadow:0 1px 6px rgba(0,0,0,0.20);
     ">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-            <div style="font-size:13px;color:#9ca3af;">{meta3}</div>
-            <div style="
-                background:{cor};
-                color:white;
-                padding:5px 10px;
-                border-radius:999px;
-                font-size:12px;
-                font-weight:700;
-            ">{risco}</div>
+            <div style="font-size:13px;color:#9ca3af;">{row["País"]} • {row["Competição"]}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+                <span style="background:{cor};color:white;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700;">
+                    {row["Risco"]}
+                </span>
+                <span style="background:{cor_g};color:white;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700;">
+                    Gols {row["Tendência de gols"]}
+                </span>
+            </div>
         </div>
 
         <div style="font-size:{size_title};font-weight:800;color:white;margin-top:10px;">
             {row["Jogo"]}
         </div>
 
-        <div style="font-size:13px;color:#cbd5e1;margin-top:8px;line-height:1.6;">
-            {meta1}<br>{meta2}
+        <div style="font-size:13px;color:#cbd5e1;margin-top:8px;line-height:1.7;">
+            ⏰ {row["Horário"] if row["Horário"] else "-"}<br>
+            🏆 {row["Rodada"] if row["Rodada"] else "Rodada não informada"}
         </div>
 
-        <div style="font-size:13px;color:#94a3b8;margin-top:10px;line-height:1.6;">
-            {extras_text}
+        <div style="font-size:14px;color:#e5e7eb;margin-top:10px;font-weight:700;">
+            {row["Favoritismo"]}
         </div>
 
-        <div style="font-size:13px;color:#e5e7eb;margin-top:10px;font-weight:600;">
-            {row["Leitura"]}
+        <div style="font-size:13px;color:#94a3b8;margin-top:8px;line-height:1.7;">
+            Status: {row["Status"]} • Leitura: {row["Leitura"]} • Confiança: {row["Confiança"]} • Nota: {row["Nota"]}
+        </div>
+
+        <div style="font-size:13px;color:#d1d5db;margin-top:10px;line-height:1.6;">
+            {row["Resumo"]}
         </div>
     </div>
     """
-    st.html(html)
+    st.markdown(html, unsafe_allow_html=True)
 
 st.markdown("""
 <style>
@@ -258,7 +333,7 @@ div[data-testid="stForm"] {
 """, unsafe_allow_html=True)
 
 st.title("📊 Análise de Jogos")
-st.caption("Ranking automático dos jogos do dia")
+st.caption("Leitura neutra dos jogos do dia")
 
 data_escolhida = st.date_input("Escolha a data dos jogos", value=date.today())
 
@@ -306,8 +381,7 @@ if "df_jogos" in st.session_state:
     c4.metric("Top nota", int(df["Nota"].max()))
 
     st.subheader("🏆 Top 10 jogos do dia")
-    top10 = df.head(10).copy()
-    for _, row in top10.iterrows():
+    for _, row in df.head(10).iterrows():
         render_card(row, compact=True)
 
     st.subheader("🔎 Filtros")
